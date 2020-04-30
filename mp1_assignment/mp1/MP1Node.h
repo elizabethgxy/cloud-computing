@@ -31,6 +31,7 @@
 enum MsgTypes{
     JOINREQ,
     JOINREP,
+    PING,
     DUMMYLASTMSGTYPE
 };
 
@@ -41,6 +42,8 @@ enum MsgTypes{
  */
 typedef struct MessageHdr {
 	enum MsgTypes msgType;
+	vector <MemberListEntry> members;
+	Address* addr;
 }MessageHdr;
 
 /**
@@ -75,8 +78,17 @@ public:
 	Address getJoinAddress();
 	void initMemberListTable(Member *memberNode);
 	void printAddress(Address *addr);
-	
 	virtual ~MP1Node();
+
+    MemberListEntry* check_member_list(int id, short port);
+    MemberListEntry* check_member_list(Address* node_addr);
+    void pushMember(MemberListEntry* e);
+    void pushMember(MessageHdr* msg);
+    Address* getAddress(int id, short port);
+    void sendMessage(Address* toAddr, MsgTypes type);
+    void handlePing(MessageHdr* msg);
+    void update_src_member(MessageHdr* msg);
+
 };
 
 #endif /* _MP1NODE_H_ */
