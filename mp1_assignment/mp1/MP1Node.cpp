@@ -256,7 +256,6 @@ void MP1Node::update_src_member(MessageHdr* msg){
 void MP1Node::handlePing(MessageHdr* msg) {
     //update header
     update_src_member(msg);
-    std::cout << "after update header" << std::endl;
     for(size_t i=0; i < msg->members.size(); i++){
         if( msg->members[i].id > 10 || msg->members[i].id < 0) {
             continue;
@@ -269,7 +268,6 @@ void MP1Node::handlePing(MessageHdr* msg) {
             }
         }else{
             pushMember(&msg->members[i]);
-            std::cout << "finish push for index" << i << std::endl;
         }
     }
     std::cout << "finish handling ping" << std::endl;
@@ -346,7 +344,7 @@ MemberListEntry* MP1Node::check_member_list(int id, short port) {
 }
 
 MemberListEntry* MP1Node::check_member_list(Address* node_addr) {
-    for (int i = 0; i < memberNode->memberList.size(); i++) {
+    for (size_t i = 0; i < memberNode->memberList.size(); i++) {
         int id = 0;
         short port = 0;
         memcpy(&id, &node_addr->addr[0], sizeof(int));
@@ -356,6 +354,7 @@ MemberListEntry* MP1Node::check_member_list(Address* node_addr) {
     }
     return nullptr;
 }
+
 
 /**
  * FUNCTION NAME: nodeLoopOps
