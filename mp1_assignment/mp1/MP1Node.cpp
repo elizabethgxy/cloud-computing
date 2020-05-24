@@ -98,7 +98,6 @@ int MP1Node::initThisNode(Address *joinaddr) {
 	 */
 	int id = *(int*)(&memberNode->addr.addr);
 	int port = *(short*)(&memberNode->addr.addr[4]);
-    std::cout << "This node id is" << id << "port is " << port << std::endl;
 	memberNode->bFailed = false;
 	memberNode->inited = true;
 	memberNode->inGroup = false;
@@ -131,13 +130,6 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
         memberNode->inGroup = true;
     }
     else {
-        /*size_t msgsize = sizeof(MessageHdr) + sizeof(joinaddr->addr) + sizeof(long) + 1;
-        msg = (MessageHdr *) malloc(msgsize * sizeof(char));
-
-        // create JOINREQ message: format of data is {struct Address myaddr}
-        msg->msgType = JOINREQ;
-        memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
-        memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));*/
         msg = new MessageHdr();
         msg->msgType = JOINREQ;
         msg->members = memberNode->memberList;
@@ -226,17 +218,13 @@ bool MP1Node::recvCallBack(void *env, char *data, int size ) {
 	 */
 	MessageHdr* msg = (MessageHdr*) data; //todo verify
 	if(msg->msgType == JOINREQ) {
-	    std::cout << "recevied JOINREQ MSG" <<  size << std::endl;
-        printf("before print addr");
-	  //  printAddress(msg->addr);
 	    pushMember(msg);
 	    sendMessage(msg->addr, JOINREP);
 	}else if(msg->msgType == JOINREP) {
-        std::cout << "received JOINREP MSG" << std::endl;
+        pushMember(msg);
 	    memberNode->inGroup = true;
 	}
 	else if(msg->msgType == PING) {
-        std::cout << "received PING MSG" << std::endl;
 	    handlePing(msg);
 	}
 	//delete msg;  //verify
@@ -270,18 +258,15 @@ void MP1Node::handlePing(MessageHdr* msg) {
             pushMember(&msg->members[i]);
         }
     }
-    std::cout << "finish handling ping" << std::endl;
 }
 
 void MP1Node::sendMessage(Address* toAddr, MsgTypes type) {
     if(isNullAddress(toAddr)){
         return;
     }
-    std::cout << "in sendMessage" << std::endl;
     MessageHdr* msg = new MessageHdr();
     msg->msgType = type;
     msg->members = memberNode->memberList;
-    std::cout << "msg addr " << memberNode->addr.getAddress() << std::endl;
     msg->addr = &memberNode->addr;
     emulNet->ENsend(&memberNode->addr, toAddr, (char *)msg, sizeof(MessageHdr));
     delete msg;
@@ -290,13 +275,9 @@ void MP1Node::sendMessage(Address* toAddr, MsgTypes type) {
 void MP1Node::pushMember(MessageHdr* msg) {
     int id=0;
     short port;
-    std::cout << "in push member" << std::endl;
     printAddress(msg->addr);
     memcpy(&id, &(msg->addr->addr[0]), sizeof(int));
-    std::cout << "id" << id << std::endl;
     memcpy(&port, &msg->addr->addr[4], sizeof(short));
-    std::cout << port << std::endl;
-    std::cout << "in push member after copy address" << std::endl;
     if(check_member_list(id, port)) {
         return;
     }
@@ -304,34 +285,28 @@ void MP1Node::pushMember(MessageHdr* msg) {
     MemberListEntry mem (id, port, 1, par->getcurrtime());
     memberNode->memberList.push_back(mem);
     log -> logNodeAdd(&memberNode->addr, msg->addr);
-
-    std::cout << "finished push member" << std::endl;
 }
 
 Address* MP1Node::getAddress(int id, short port) {
     Address* address = new Address();
-    memcpy(&address[0], &id, sizeof(int));
-    memcpy(&address[4], &port, sizeof(short));
+    memcpy(&address->addr[0], &id, sizeof(int));
+    memcpy(&address->addr[4], &port, sizeof(short));
     return address;
 }
 
 void MP1Node::pushMember(MemberListEntry* e) {
-    std::cout << "in push member for memberlist" << std::endl;
     Address* addr = getAddress(e->id, e->port);
 
     if (*addr == memberNode->addr) {
         delete addr;
-        std::cout << "end pushmember" << std::endl;
         return;
     }
 
     if (par->getcurrtime() - e->timestamp < TREMOVE) {
-        std::cout << "add node  " << std::endl;
         log->logNodeAdd(&memberNode->addr, addr);
         memberNode->memberList.push_back(*e);
     }
     delete addr;
-    std::cout << "end pushmember" << std::endl;
 }
 
 
@@ -427,7 +402,6 @@ void MP1Node::initMemberListTable(Member *memberNode) {
  */
 void MP1Node::printAddress(Address *addr)
 {
-    std::cout << ("inside print addr") <<std::endl;
     printf("%d.%d.%d.%d:%d \n",  addr->addr[0],addr->addr[1],addr->addr[2],
                                                        addr->addr[3], *(short*)&addr->addr[4]) ;    
 }
