@@ -1,0 +1,95 @@
+============================================
+Grading Started
+============================================
+Single Failure Scenario
+============================
+MP1Node.cpp: In member function ‘int MP1Node::initThisNode(Address*)’:
+MP1Node.cpp:99:6: warning: unused variable ‘id’ [-Wunused-variable]
+  int id = *(int*)(&memberNode->addr.addr);
+      ^~
+MP1Node.cpp:100:6: warning: unused variable ‘port’ [-Wunused-variable]
+  int port = *(short*)(&memberNode->addr.addr[4]);
+      ^~~~
+Application.cpp: In member function ‘int Application::run()’:
+Application.cpp:93:6: warning: unused variable ‘timeWhenAllNodesHaveJoined’ [-Wunused-variable]
+  int timeWhenAllNodesHaveJoined = 0;
+      ^~~~~~~~~~~~~~~~~~~~~~~~~~
+Application.cpp:95:7: warning: unused variable ‘allNodesJoined’ [-Wunused-variable]
+  bool allNodesJoined = false;
+       ^~~~~~~~~~~~~~
+Log.cpp: In member function ‘void Log::logNodeRemove(Address*, Address*)’:
+Log.cpp:127:6: warning: ‘ removed at time ’ directive writing 17 bytes into a region of size between 0 and 16 [-Wformat-overflow=]
+ void Log::logNodeRemove(Address *thisNode, Address *removedAddr) {
+      ^~~
+Log.cpp:129:9: note: ‘sprintf’ output between 33 and 60 bytes into a destination of size 30
+  sprintf(stdstring, "Node %d.%d.%d.%d:%d removed at time %d", removedAddr->addr[0], removedAddr->addr[1], removedAddr->addr[2], removedAddr->addr[3], *(short *)&removedAddr->addr[4], par->getcurrtime());
+  ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Params.cpp: In member function ‘void Params::setparams(char*)’:
+Params.cpp:35:30: warning: comparison between signed and unsigned integer expressions [-Wsign-compare]
+  for ( unsigned int i = 0; i < EN_GPSZ; i++ ) {
+                            ~~^~~~~~~~~
+Checking Join..................10/10
+Checking Completeness..........10/10
+Checking Accuracy..............10/10
+============================================
+Multi Failure Scenario
+============================
+MP1Node.cpp: In member function ‘int MP1Node::initThisNode(Address*)’:
+MP1Node.cpp:99:6: warning: unused variable ‘id’ [-Wunused-variable]
+  int id = *(int*)(&memberNode->addr.addr);
+      ^~
+MP1Node.cpp:100:6: warning: unused variable ‘port’ [-Wunused-variable]
+  int port = *(short*)(&memberNode->addr.addr[4]);
+      ^~~~
+Application.cpp: In member function ‘int Application::run()’:
+Application.cpp:93:6: warning: unused variable ‘timeWhenAllNodesHaveJoined’ [-Wunused-variable]
+  int timeWhenAllNodesHaveJoined = 0;
+      ^~~~~~~~~~~~~~~~~~~~~~~~~~
+Application.cpp:95:7: warning: unused variable ‘allNodesJoined’ [-Wunused-variable]
+  bool allNodesJoined = false;
+       ^~~~~~~~~~~~~~
+Log.cpp: In member function ‘void Log::logNodeRemove(Address*, Address*)’:
+Log.cpp:127:6: warning: ‘ removed at time ’ directive writing 17 bytes into a region of size between 0 and 16 [-Wformat-overflow=]
+ void Log::logNodeRemove(Address *thisNode, Address *removedAddr) {
+      ^~~
+Log.cpp:129:9: note: ‘sprintf’ output between 33 and 60 bytes into a destination of size 30
+  sprintf(stdstring, "Node %d.%d.%d.%d:%d removed at time %d", removedAddr->addr[0], removedAddr->addr[1], removedAddr->addr[2], removedAddr->addr[3], *(short *)&removedAddr->addr[4], par->getcurrtime());
+  ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Params.cpp: In member function ‘void Params::setparams(char*)’:
+Params.cpp:35:30: warning: comparison between signed and unsigned integer expressions [-Wsign-compare]
+  for ( unsigned int i = 0; i < EN_GPSZ; i++ ) {
+                            ~~^~~~~~~~~
+Checking Join..................10/10
+Checking Completeness..........10/10
+Checking Accuracy..............10/10
+============================================
+Message Drop Single Failure Scenario
+============================
+MP1Node.cpp: In member function ‘int MP1Node::initThisNode(Address*)’:
+MP1Node.cpp:99:6: warning: unused variable ‘id’ [-Wunused-variable]
+  int id = *(int*)(&memberNode->addr.addr);
+      ^~
+MP1Node.cpp:100:6: warning: unused variable ‘port’ [-Wunused-variable]
+  int port = *(short*)(&memberNode->addr.addr[4]);
+      ^~~~
+Application.cpp: In member function ‘int Application::run()’:
+Application.cpp:93:6: warning: unused variable ‘timeWhenAllNodesHaveJoined’ [-Wunused-variable]
+  int timeWhenAllNodesHaveJoined = 0;
+      ^~~~~~~~~~~~~~~~~~~~~~~~~~
+Application.cpp:95:7: warning: unused variable ‘allNodesJoined’ [-Wunused-variable]
+  bool allNodesJoined = false;
+       ^~~~~~~~~~~~~~
+Log.cpp: In member function ‘void Log::logNodeRemove(Address*, Address*)’:
+Log.cpp:127:6: warning: ‘ removed at time ’ directive writing 17 bytes into a region of size between 0 and 16 [-Wformat-overflow=]
+ void Log::logNodeRemove(Address *thisNode, Address *removedAddr) {
+      ^~~
+Log.cpp:129:9: note: ‘sprintf’ output between 33 and 60 bytes into a destination of size 30
+  sprintf(stdstring, "Node %d.%d.%d.%d:%d removed at time %d", removedAddr->addr[0], removedAddr->addr[1], removedAddr->addr[2], removedAddr->addr[3], *(short *)&removedAddr->addr[4], par->getcurrtime());
+  ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Params.cpp: In member function ‘void Params::setparams(char*)’:
+Params.cpp:35:30: warning: comparison between signed and unsigned integer expressions [-Wsign-compare]
+  for ( unsigned int i = 0; i < EN_GPSZ; i++ ) {
+                            ~~^~~~~~~~~
+Checking Join..................15/15
+Checking Completeness..........15/15
+Final grade 90
