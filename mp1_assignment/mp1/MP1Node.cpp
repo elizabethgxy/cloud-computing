@@ -227,7 +227,7 @@ bool MP1Node::recvCallBack(void *env, char *data, int size ) {
 	else if(msg->msgType == PING) {
 	    handlePing(msg);
 	}
-	//delete msg;  //verify
+	delete msg;  //verify
 	return true;
 }
 
@@ -235,7 +235,7 @@ void MP1Node::update_src_member(MessageHdr* msg){
     MemberListEntry* src_member = check_member_list(msg->addr);
     if(src_member != nullptr){
         src_member->heartbeat ++;
-        src_member->timestamp = par->getcurrtime();
+        src_member->timestamp = this->par->getcurrtime();
     }else{
         pushMember(msg);
     }
@@ -269,7 +269,6 @@ void MP1Node::sendMessage(Address* toAddr, MsgTypes type) {
     msg->members = memberNode->memberList;
     msg->addr = &memberNode->addr;
     emulNet->ENsend(&memberNode->addr, toAddr, (char *)msg, sizeof(MessageHdr));
-    delete msg;
 }
 
 void MP1Node::pushMember(MessageHdr* msg) {
