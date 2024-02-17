@@ -6,6 +6,7 @@
  **********************************/
 
 #include "MP1Node.h"
+#include "Log.h"
 
 /*
  * Note: You can change/add any functions in MP1Node.{h,cpp}
@@ -98,7 +99,8 @@ int MP1Node::initThisNode(Address *joinaddr) {
 	 */
 	int id = *(int*)(&memberNode->addr.addr);
 	int port = *(short*)(&memberNode->addr.addr[4]);
-
+    
+    memberNode->addr = Address(to_string(id) + ":" + to_string(port));
 	memberNode->bFailed = false;
 	memberNode->inited = true;
 	memberNode->inGroup = false;
@@ -136,8 +138,10 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
 
         // create JOINREQ message: format of data is {struct Address myaddr}
         msg->msgType = JOINREQ;
-        memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
-        memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
+        msg->addr = &memberNode->addr;
+        //msg->members = memberNode->memberList;
+        //memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
+        //memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
 
 #ifdef DEBUGLOG
         sprintf(s, "Trying to join...");
@@ -145,9 +149,20 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
 #endif
 
         // send JOINREQ message to introducer member
-        emulNet->ENsend(&memberNode->addr, joinaddr, (char *)msg, msgsize);
+        emulNet->ENsend(&memberNode->addr, joinaddr, (char *)msg, sizeof(MessageHdr));
 
         free(msg);
+
+        int id = 0;
+        short port;
+        printAddress(msg->addr);
+        memcpy(&id, &msg->addr->addr[0], sizeof(int));
+        memcpy(&port, &msg->addr->addr[4], sizeof(short));
+        
+        // put the node itself at the beginning of the membershipt list
+        memberNode->memberList.push_back(MemberListEntry(id, port, memberNode->heartbeat, par->getcurrtime()));
+        auto addedAddress = Address(to_string(id) + ":" + to_string(port));
+        log->logNodeAdd(&memberNode->addr, &addedAddress);
     }
 
     return 1;
@@ -163,6 +178,7 @@ int MP1Node::finishUpThisNode(){
    /*
     * Your code goes here
     */
+   return 0;
 }
 
 /**
@@ -215,9 +231,52 @@ void MP1Node::checkMessages() {
  * DESCRIPTION: Message handler for different message types
  */
 bool MP1Node::recvCallBack(void *env, char *data, int size ) {
-	/*
-	 * Your code goes here
-	 */
+	MessageHdr* msg = (MessageHdr *) data;
+    // Consume msg and construct response
+
+    if (msg->msgType == JOINREQ){
+        std::cout << "received joinreq" << endl;
+        pushMember(msg);
+        
+        size_t msgsize = sizeof(MessageHdr) + sizeof(&memberNode->addr) + sizeof(memberNode->memberList) + 1;
+        MessageHdr* replyMsg = (MessageHdr *) malloc(msgsize * sizeof(char));
+        replyMsg->msgType = JOINREP;
+        replyMsg->members = memberNode->memberList;
+        replyMsg->addr = &memberNode->addr;
+
+        // reply with JOINREP message 
+        emulNet->ENsend(&memberNode->addr, msg->addr, (char *)replyMsg, msgsize);
+    }
+
+    if(msg->msgType == PING) {
+        std::cout << "received ping msg";
+        for(const auto& updateMember: msg->members) {
+            for(int i=0; i<memberNode->memberList.size(); i++) {
+                const auto& existMember = memberNode->memberList[i];
+                if (existMember.id == updateMember.id && existMember.port == updateMember.port)  {
+                    if(existMember.heartbeat < updateMember.heartbeat) {
+                        memberNode->memberList[i].heartbeat = updateMember.heartbeat;
+                        memberNode->memberList[i].timestamp = par->getcurrtime();
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    return true;
+    
+}
+
+void MP1Node::pushMember(MessageHdr* msg) {
+    int id = 0;
+	short port;
+    printAddress(msg->addr);
+	memcpy(&id, &msg->addr->addr[0], sizeof(int));
+	memcpy(&port, &msg->addr->addr[4], sizeof(short));
+    memberNode->memberList.push_back(MemberListEntry(id, port, 0, (long)par->getcurrtime()));  // heartbeat should be 0 as it's just joined
+    auto addedAddress = Address(to_string(id) + ":" + to_string(port));
+    log->logNodeAdd(&memberNode->addr, &addedAddress);
+    std::cout << "managed to update memberlist" << endl;
 }
 
 /**
@@ -229,9 +288,44 @@ bool MP1Node::recvCallBack(void *env, char *data, int size ) {
  */
 void MP1Node::nodeLoopOps() {
 
-	/*
-	 * Your code goes here
-	 */
+	// update my heartbeat 
+    memberNode->heartbeat ++;
+    memberNode->memberList[0].heartbeat = memberNode->heartbeat;
+    
+    // delete old member
+    vector<MemberListEntry> toRemove;
+    for(auto& member: memberNode->memberList) {
+        if(member.timestamp + TREMOVE  < par->getcurrtime()) {  //timeout and delete the node
+            toRemove.push_back(member);
+        }      
+    }
+
+    for (auto& memberToRemove : toRemove) {
+       for(int i=0; i<memberNode->memberList.size(); i++) {
+         if(memberToRemove.id == memberNode->memberList[i].id && memberToRemove.port == memberNode->memberList[i].port){
+            memberNode->memberList.erase(memberNode->memberList.begin() + i);
+            auto removedAddress = Address(to_string(memberToRemove.id) + ":" + to_string(memberToRemove.port));
+            log->logNodeRemove(&memberNode->addr, &removedAddress);
+            break;
+         }
+       }
+    }
+
+    // propagate my membership list by sending ping msg
+    if (par->getcurrtime() % (TFAIL-1) == 0) {
+        
+        size_t msgsize = sizeof(MessageHdr) + sizeof(&memberNode->addr) + sizeof(memberNode->memberList) + 1;
+        MessageHdr* pingMsg = (MessageHdr *) malloc(msgsize * sizeof(char));
+        pingMsg->msgType = PING;
+        pingMsg->members = memberNode->memberList;
+        pingMsg->addr = &memberNode->addr;
+        
+        for(const auto& member: memberNode->memberList)  {
+            // reply with JOINREP message 
+            Address receiveAddress = Address(to_string(member.id) + ":" + to_string(member.port));
+            emulNet->ENsend(&memberNode->addr, &receiveAddress, (char *)pingMsg, msgsize);
+        }
+    }
 
     return;
 }
