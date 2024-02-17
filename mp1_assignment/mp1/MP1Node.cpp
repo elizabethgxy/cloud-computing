@@ -136,8 +136,10 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
 
         // create JOINREQ message: format of data is {struct Address myaddr}
         msg->msgType = JOINREQ;
-        memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
-        memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
+        msg->addr = &memberNode->addr;
+        msg->members = memberNode->memberList;
+        //memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
+        //memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
 
 #ifdef DEBUGLOG
         sprintf(s, "Trying to join...");
@@ -145,7 +147,7 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
 #endif
 
         // send JOINREQ message to introducer member
-        emulNet->ENsend(&memberNode->addr, joinaddr, (char *)msg, msgsize);
+        emulNet->ENsend(&memberNode->addr, joinaddr, (char *)msg, sizeof(MessageHdr));
 
         free(msg);
     }
@@ -215,9 +217,34 @@ void MP1Node::checkMessages() {
  * DESCRIPTION: Message handler for different message types
  */
 bool MP1Node::recvCallBack(void *env, char *data, int size ) {
-	/*
-	 * Your code goes here
-	 */
+	MessageHdr* msg = (MessageHdr *) data;
+    // Consume msg and construct response
+
+    if (msg->msgType == JOINREQ){
+        std::cout << "received joinreq" << endl;
+        pushMember(msg);
+        
+        size_t msgsize = sizeof(MessageHdr) + sizeof(&memberNode->addr) + sizeof(memberNode->memberList) + 1;
+        MessageHdr* replyMsg = (MessageHdr *) malloc(msgsize * sizeof(char));
+        replyMsg->msgType = JOINREP;
+        replyMsg->members = memberNode->memberList;
+        replyMsg->addr = &memberNode->addr;
+
+        // reply with JOINREP message 
+        emulNet->ENsend(&memberNode->addr, msg->addr, (char *)replyMsg, msgsize);
+    }
+    return true;
+    
+}
+
+void MP1Node::pushMember(MessageHdr* msg) {
+    int id = 0;
+	short port;
+    printAddress(msg->addr);
+	memcpy(&id, &msg->addr[0], sizeof(int));
+	memcpy(&port, &msg->addr[4], sizeof(short));
+    memberNode->memberList.push_back({id, port, 0, 0});  // TODO heartbeat and timestamp
+    std::cout << "managed to update memberlist";
 }
 
 /**
