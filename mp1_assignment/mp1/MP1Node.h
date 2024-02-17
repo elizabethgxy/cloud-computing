@@ -31,7 +31,8 @@
 enum MsgTypes{
     JOINREQ,
     JOINREP,
-    PING
+    PING,
+    DUMMYLASTMSGTYPE
 };
 
 /**
