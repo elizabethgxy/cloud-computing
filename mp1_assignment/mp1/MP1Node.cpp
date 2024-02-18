@@ -407,4 +407,3 @@ MemberListEntry* MP1Node::check_member_list(Address* node_addr) {
 Address MP1Node::get_address(const MemberListEntry& entry) {
     return Address(to_string(entry.id) + ":" + to_string(entry.port));
 }
-
