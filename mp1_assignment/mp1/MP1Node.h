@@ -87,6 +87,7 @@ public:
     void sendMessage(Address* toAddr, MsgTypes type);
     void handlePing(MessageHdr* msg);
     void update_src_member(MessageHdr* msg);
+	Address get_address(const MemberListEntry& entry);
 
 };
 

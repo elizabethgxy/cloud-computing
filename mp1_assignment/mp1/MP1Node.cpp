@@ -139,7 +139,6 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
         // create JOINREQ message: format of data is {struct Address myaddr}
         msg->msgType = JOINREQ;
         msg->addr = &memberNode->addr;
-        //msg->members = memberNode->memberList;
         //memcpy((char *)(msg+1), &memberNode->addr.addr, sizeof(memberNode->addr.addr));
         //memcpy((char *)(msg+1) + 1 + sizeof(memberNode->addr.addr), &memberNode->heartbeat, sizeof(long));
 
@@ -151,17 +150,10 @@ int MP1Node::introduceSelfToGroup(Address *joinaddr) {
         // send JOINREQ message to introducer member
         emulNet->ENsend(&memberNode->addr, joinaddr, (char *)msg, sizeof(MessageHdr));
 
-        free(msg);
-
-        int id = 0;
-        short port;
-        printAddress(msg->addr);
-        memcpy(&id, &msg->addr->addr[0], sizeof(int));
-        memcpy(&port, &msg->addr->addr[4], sizeof(short));
-        
         // put the node itself at the beginning of the membershipt list
-        pushMember(id, port);
-        log->LOG(&memberNode->addr, "called by introduceSelfToGroup");
+        pushMember(msg);
+
+        free(msg);
     }
 
     return 1;
@@ -248,27 +240,22 @@ bool MP1Node::recvCallBack(void *env, char *data, int size ) {
         emulNet->ENsend(&memberNode->addr, msg->addr, (char *)replyMsg, sizeof(MessageHdr));
     }
     else if(msg->msgType == JOINREP) {
-        log->LOG(&memberNode->addr, "called by JOINREP");
         pushMember(msg);
         memberNode->inGroup = true;
     }
-
-    if(msg->msgType == PING) {
+    else if(msg->msgType == PING) {
         handlePing(msg);
     }
     return true;
-    
 }
 
 void MP1Node::handlePing(MessageHdr* msg) {
-    // TODO verify bug for not update heartbeat
     for(const auto& updateMember: msg->members) {
         MemberListEntry* updateEntry = check_member_list(updateMember.id, updateMember.port); 
         if(updateMember.timestamp + TREMOVE < par->getcurrtime()) {
             continue;
         }
         if(!updateEntry) {
-            log->LOG(&memberNode->addr, "called by handleping");
             pushMember(updateMember.id, updateMember.port);
         }
         else {
@@ -297,9 +284,7 @@ void MP1Node::pushMember(MessageHdr* msg) {
         return;
     }
     else {
-        memberNode->memberList.push_back(MemberListEntry(id, port, 1, (long)par->getcurrtime()));  // heartbeat should be 0 as it's just joined
-        auto addedAddress = Address(to_string(id) + ":" + to_string(port));
-        log->logNodeAdd(&memberNode->addr, &addedAddress);
+       pushMember(id, port);
     }
 }
 
@@ -331,7 +316,7 @@ void MP1Node::nodeLoopOps() {
         }
     } else {
         for(int i=0; i<memberNode->memberList.size(); i++) {
-            if(Address(to_string(memberNode->memberList[i].id) + ":" + to_string(memberNode->memberList[i].port)) == memberNode->addr) {
+            if(get_address(memberNode->memberList[i]) == memberNode->addr) {
                 memberNode->memberList.erase(memberNode->memberList.begin() + i);
                 break;
             }
@@ -339,24 +324,13 @@ void MP1Node::nodeLoopOps() {
     }
     
     // delete old member
-    vector<MemberListEntry> toRemove;
-    for(auto& member: memberNode->memberList) {
-        if(member.timestamp + TREMOVE  < par->getcurrtime()) {  //timeout and delete the node
-            toRemove.push_back(member);
-        }      
+       for (int i = memberNode->memberList.size()-1 ; i >= 0; i--) {
+        if(par->getcurrtime() - memberNode->memberList[i].timestamp >= TREMOVE) {
+            Address removed_addr = get_address(memberNode->memberList[i]);
+            log->logNodeRemove(&memberNode->addr, &removed_addr);
+            memberNode->memberList.erase(memberNode->memberList.begin()+i);
+        }
     }
-
-    for (auto& memberToRemove : toRemove) {
-       for(int i=0; i<memberNode->memberList.size(); i++) {
-         if(memberToRemove.id == memberNode->memberList[i].id && memberToRemove.port == memberNode->memberList[i].port){
-            memberNode->memberList.erase(memberNode->memberList.begin() + i);
-            auto removedAddress = Address(to_string(memberToRemove.id) + ":" + to_string(memberToRemove.port));
-            log->logNodeRemove(&memberNode->addr, &removedAddress);
-            break;
-         }
-       }
-    }
-
     // propagate my membership list by sending ping msg
     if (!memberNode->bFailed) {
         
@@ -371,7 +345,6 @@ void MP1Node::nodeLoopOps() {
             emulNet->ENsend(&memberNode->addr, &receiveAddress, (char *)pingMsg, sizeof(MessageHdr));
         }
     }
-
     return;
 }
 
@@ -430,3 +403,8 @@ MemberListEntry* MP1Node::check_member_list(Address* node_addr) {
     }
     return nullptr;
 }
+
+Address MP1Node::get_address(const MemberListEntry& entry) {
+    return Address(to_string(entry.id) + ":" + to_string(entry.port));
+}
+
