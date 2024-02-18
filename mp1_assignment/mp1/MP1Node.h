@@ -31,8 +31,7 @@
 enum MsgTypes{
     JOINREQ,
     JOINREP,
-    PING,
-    DUMMYLASTMSGTYPE
+    PING
 };
 
 /**
@@ -82,12 +81,13 @@ public:
 
     MemberListEntry* check_member_list(int id, short port);
     MemberListEntry* check_member_list(Address* node_addr);
-    void pushMember(MemberListEntry* e);
+    void pushMember(int id, short port);
     void pushMember(MessageHdr* msg);
     Address* getAddress(int id, short port);
     void sendMessage(Address* toAddr, MsgTypes type);
     void handlePing(MessageHdr* msg);
     void update_src_member(MessageHdr* msg);
+	Address get_address(const MemberListEntry& entry);
 
 };
 
