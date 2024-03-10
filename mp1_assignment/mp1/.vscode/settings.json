@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "iostream": "cpp",
+        "string": "cpp",
+        "__locale": "cpp",
+        "locale": "cpp",
+        "ostream": "cpp",
+        "vector": "cpp"
+    }
+}
