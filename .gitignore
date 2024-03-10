@@ -1,4 +1,14 @@
-*.d
-
+# Ignore compiled binaries
 *.o
-*.obj
+*.out
+
+# Ignore temporary files
+*.tmp
+
+# Ignore log files
+*.log
+
+# Ignore IDE-specific files and directories
+.vscode/
+.idea/
+
