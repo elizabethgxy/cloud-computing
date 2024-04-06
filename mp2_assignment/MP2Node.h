@@ -29,6 +29,24 @@
  * 				3) Server side CRUD APIs
  * 				4) Client side CRUD APIs
  */
+struct Transaction  {
+	int transactionId;
+	int createTime;
+	std::vector<Message> msgs;
+	int quorumCount = 0;
+	bool processed = false;
+
+     Transaction(int id, int time, const Message& message) : 
+        transactionId(id), createTime(time), msgs({message}), quorumCount(0), processed(false) {}
+
+	Transaction(const Transaction& other) :
+        transactionId(other.transactionId),
+        createTime(other.createTime),
+        msgs(other.msgs),
+		quorumCount(other.quorumCount),
+		processed(other.processed) {}
+};
+
 class MP2Node {
 private:
 	// Vector holding the next two neighbors in the ring who have my replicas
@@ -47,6 +65,8 @@ private:
 	EmulNet * emulNet;
 	// Object of Log
 	Log * log;
+
+	std::map<int, Transaction> store; 
 
 public:
 	MP2Node(Member *memberNode, Params *par, EmulNet *emulNet, Log *log, Address *addressOfMember);
@@ -87,6 +107,10 @@ public:
 
 	// stabilization protocol - handle multiple failures
 	void stabilizationProtocol();
+
+	void checkQuorum();
+
+	void processReply(const Message& msg);
 
 	~MP2Node();
 };
