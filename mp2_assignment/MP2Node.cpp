@@ -51,6 +51,24 @@ void MP2Node::updateRing() {
 	 */
 	// Sort the list based on the hashCode
 	sort(curMemList.begin(), curMemList.end());
+	for(int i = 0; i < curMemList.size(); i++) {
+		if(i < ring.size()) {
+			if(ring[i].nodeHashCode != curMemList[i].nodeHashCode) {
+				change = true;
+			}
+			ring[i] = curMemList[i];
+		}
+		else{
+			ring.emplace_back(curMemList[i]);
+			change = true;
+		}
+	}
+	while(ring.size() > curMemList.size()) {
+		ring.pop_back();
+	}
+	if(change) {
+		stabilizationProtocol();
+	}
 
 
 	/*
@@ -111,6 +129,14 @@ void MP2Node::clientCreate(string key, string value) {
 	/*
 	 * Implement this
 	 */
+	 g_transID++;
+	 Message createMsg = Message(g_transID, this->memberNode->addr, MessageType::CREATE, key, value, ReplicaType::PRIMARY);
+	 Transaction transaction(g_transID, par->getcurrtime(), createMsg);
+	 store.insert(std::make_pair(g_transID, transaction));
+	 vector<Node> replicas = findNodes(key);
+	 for(auto& node: replicas){
+		emulNet->ENsend(&this->memberNode->addr, node.getAddress(), createMsg.toString());
+	 }
 }
 
 /**
@@ -126,6 +152,14 @@ void MP2Node::clientRead(string key){
 	/*
 	 * Implement this
 	 */
+	 g_transID++;
+     Message readMsg = Message(g_transID, this->memberNode->addr, MessageType::READ, key);
+	 Transaction transaction(g_transID, par->getcurrtime(), readMsg);
+	 store.insert(std::make_pair(g_transID, transaction));
+	 vector<Node> replicas = findNodes(key);
+	 for(auto& node: replicas){
+		emulNet->ENsend(&this->memberNode->addr, node.getAddress(), readMsg.toString());
+	 }
 }
 
 /**
@@ -141,6 +175,14 @@ void MP2Node::clientUpdate(string key, string value){
 	/*
 	 * Implement this
 	 */
+	 g_transID++;
+	 Message updateMsg = Message(g_transID, this->memberNode->addr, MessageType::UPDATE, key, value);
+	 Transaction transaction(g_transID, par->getcurrtime(), updateMsg);
+	 store.insert(std::make_pair(g_transID, transaction)); 
+	 vector<Node> replicas = findNodes(key);
+	 for(auto& node: replicas){
+		emulNet->ENsend(&this->memberNode->addr, node.getAddress(), updateMsg.toString());
+	 }
 }
 
 /**
@@ -156,6 +198,14 @@ void MP2Node::clientDelete(string key){
 	/*
 	 * Implement this
 	 */
+	g_transID++;
+    Message deleteMsg = Message(g_transID, this->memberNode->addr, MessageType::DELETE, key);
+	Transaction transaction(g_transID, par->getcurrtime(), deleteMsg);
+	store.insert(std::make_pair(g_transID, transaction));
+	vector<Node> replicas = findNodes(key);
+	for(auto& node: replicas){
+		emulNet->ENsend(&this->memberNode->addr, node.getAddress(), deleteMsg.toString());
+	}
 }
 
 /**
@@ -170,7 +220,8 @@ bool MP2Node::createKeyValue(string key, string value, ReplicaType replica) {
 	/*
 	 * Implement this
 	 */
-	// Insert key, value, replicaType into the hash table
+	ht->create(key, value);  //TODO replicaType
+	return true;
 }
 
 /**
@@ -186,6 +237,8 @@ string MP2Node::readKey(string key) {
 	 * Implement this
 	 */
 	// Read key from local hash table and return value
+	auto value = ht->read(key);
+	return value;
 }
 
 /**
@@ -201,6 +254,8 @@ bool MP2Node::updateKeyValue(string key, string value, ReplicaType replica) {
 	 * Implement this
 	 */
 	// Update key in local hash table and return true or false
+	auto res = ht->update(key, value); // TODO replica
+	return res;
 }
 
 /**
@@ -216,6 +271,8 @@ bool MP2Node::deletekey(string key) {
 	 * Implement this
 	 */
 	// Delete the key from the local hash table
+	auto res = ht->deleteKey(key);
+	return res;
 }
 
 /**
@@ -251,7 +308,56 @@ void MP2Node::checkMessages() {
 		/*
 		 * Handle the message types here
 		 */
-
+		 Message msg(message);
+		 switch(msg.type) {
+			case MessageType::CREATE:
+			 	if(createKeyValue(msg.key, msg.value, msg.replica)) {
+					if(  msg.transID >= 0) {
+						this->log->logCreateSuccess(&this->memberNode->addr, msg.fromAddr==this->memberNode->addr, msg.transID, msg.key, msg.value);
+						emulNet->ENsend(&this->memberNode->addr, &msg.fromAddr, Message(msg.transID, this->memberNode->addr, MessageType::REPLY, true).toString());
+					}
+				 }
+				 else {
+					 this->log->logCreateFail(&this->memberNode->addr, msg.fromAddr==this->memberNode->addr, msg.transID, msg.key, msg.value);
+					 emulNet->ENsend(&this->memberNode->addr, &msg.fromAddr, Message(msg.transID, this->memberNode->addr, MessageType::REPLY, false).toString());
+				 }
+				
+				break;
+			case MessageType::UPDATE:
+			 	if(updateKeyValue(msg.key, msg.value, msg.replica)){
+					this->log->logUpdateSuccess(&this->memberNode->addr, msg.fromAddr==this->memberNode->addr, msg.transID, msg.key, msg.value);
+					emulNet->ENsend(&this->memberNode->addr, &msg.fromAddr, Message(msg.transID, this->memberNode->addr, MessageType::REPLY, true).toString());
+				} else {
+					this->log->logUpdateFail(&this->memberNode->addr, msg.fromAddr==this->memberNode->addr, msg.transID, msg.key, msg.value);
+					 emulNet->ENsend(&this->memberNode->addr, &msg.fromAddr, Message(msg.transID, this->memberNode->addr, MessageType::REPLY, false).toString());
+				}
+				break;
+			case MessageType::READ:
+			 	if(readKey(msg.key) != ""){
+					 this->log->logReadSuccess(&this->memberNode->addr, msg.fromAddr==this->memberNode->addr,  msg.transID, msg.key, readKey(msg.key));
+					 emulNet->ENsend(&this->memberNode->addr, &msg.fromAddr, Message(msg.transID, this->memberNode->addr, readKey(msg.key)).toString());
+				 }else {
+					 this->log->logReadFail(&this->memberNode->addr, msg.fromAddr==this->memberNode->addr,  msg.transID, msg.key);
+					  emulNet->ENsend(&this->memberNode->addr, &msg.fromAddr, Message(msg.transID, this->memberNode->addr, "").toString());
+				 }
+				break;
+			case MessageType::DELETE:
+				if(deletekey(msg.key)){
+					this->log->logDeleteSuccess(&this->memberNode->addr, msg.fromAddr==this->memberNode->addr, msg.transID, msg.key);
+					emulNet->ENsend(&this->memberNode->addr, &msg.fromAddr, Message(msg.transID, this->memberNode->addr, MessageType::REPLY, true).toString());
+				} else {
+					this->log->logDeleteFail(&this->memberNode->addr, msg.fromAddr==this->memberNode->addr, msg.transID, msg.key);
+					emulNet->ENsend(&this->memberNode->addr, &msg.fromAddr, Message(msg.transID, this->memberNode->addr, MessageType::REPLY, false).toString());
+				}
+				
+				break;
+			case MessageType::REPLY:
+				processReply(msg);
+				break;
+			case MessageType::READREPLY:
+				processReply(msg);
+				break;
+		 }
 	}
 
 	/*
@@ -260,6 +366,89 @@ void MP2Node::checkMessages() {
 	 */
 }
 
+void MP2Node::processReply(const Message& msg) {
+	int id = msg.transID;
+	auto it = store.find(id);
+	it->second.msgs.emplace_back(msg);
+	if(msg.type == MessageType::REPLY) {
+		if (msg.success) {
+			it->second.quorumCount += 1;
+		}
+	}
+	if(msg.type == MessageType::READREPLY) {
+		if(msg.value != "") {
+			it->second.quorumCount += 1;
+		}
+	}
+	checkQuorum();
+}
+
+void MP2Node::checkQuorum() {
+	std::string readVal = "";
+	for(auto it = store.begin(); it != store.end(); it++) {
+		int id = it->first;
+		MessageType messageType = it->second.msgs[0].type;
+	    if(it->second.quorumCount >= 2 && it->second.processed == false) {
+			if(messageType == MessageType::CREATE) {
+				this->log->logCreateSuccess(&this->memberNode->addr, true, id, it->second.msgs[0].key, it->second.msgs[0].value);
+			}
+			if(messageType == MessageType::DELETE) {
+				this->log->logDeleteSuccess(&this->memberNode->addr, true, id, it->second.msgs[0].key);
+			}
+			if(messageType == MessageType::READ) {
+				readVal = it->second.msgs[1].value;
+				this->log->logReadSuccess(&this->memberNode->addr, true, id, it->second.msgs[0].key,  readVal);
+				//std::cout << "RES SUCCESS value = " << readVal  << std::endl;
+			}
+			if(messageType == MessageType::UPDATE) {
+				this->log->logUpdateSuccess(&this->memberNode->addr, true, id, it->second.msgs[0].key, it->second.msgs[0].value);
+			}
+			it->second.processed = true;	
+		}
+	}
+	for(auto it = store.begin(); it != store.end(); it++) {
+		int id = it->first;
+		MessageType messageType = it->second.msgs[0].type;
+		if(it->second.msgs.size() >= 4 && it->second.processed == false) {
+			if(messageType == MessageType::CREATE) {
+				this->log->logCreateFail(&this->memberNode->addr, true, id, it->second.msgs[0].key, it->second.msgs[0].value);
+			}
+			if(messageType == MessageType::DELETE) {
+				this->log->logDeleteFail(&this->memberNode->addr, true, id, it->second.msgs[0].key);
+			}
+			if(messageType == MessageType::READ) {
+				this->log->logReadFail(&this->memberNode->addr, true, id, it->second.msgs[0].key);
+				//std::cout << "RES FAIL" << std::endl;
+			}
+			if(messageType == MessageType::UPDATE) {
+				this->log->logUpdateFail(&this->memberNode->addr, true, id, it->second.msgs[0].key, it->second.msgs[0].value);
+			}
+			it->second.processed = true;	
+		}
+	}
+
+	for(auto it = store.begin(); it != store.end(); it++) {
+		int id = it->first;
+		MessageType messageType = it->second.msgs[0].type;
+		if(par->getcurrtime() - it->second.createTime > 10  && it->second.processed == false) {
+			if(messageType == MessageType::CREATE) {
+				this->log->logCreateFail(&this->memberNode->addr, true, id, it->second.msgs[0].key, it->second.msgs[0].value);
+			}
+			if(messageType == MessageType::DELETE) {
+				this->log->logDeleteFail(&this->memberNode->addr, true, id, it->second.msgs[0].key);
+			}
+			if(messageType == MessageType::READ) {
+				this->log->logReadFail(&this->memberNode->addr, true, id, it->second.msgs[0].key);
+				//std::cout << "RES FAIL" << std::endl;
+			}
+			if(messageType == MessageType::UPDATE) {
+				this->log->logUpdateFail(&this->memberNode->addr, true, id, it->second.msgs[0].key, it->second.msgs[0].value);
+			}
+			it->second.processed = true;	
+		}
+	}
+}
+ 
 /**
  * FUNCTION NAME: findNodes
  *
@@ -328,4 +517,11 @@ void MP2Node::stabilizationProtocol() {
 	/*
 	 * Implement this
 	 */
+	 for(auto d: ht->hashTable) {
+		vector<Node> replicas = findNodes(d.first);
+        Message message = Message(-1, this->memberNode->addr, MessageType::CREATE, d.first, d.second, ReplicaType::PRIMARY);
+		for(auto node: replicas) {
+			emulNet->ENsend(&this->memberNode->addr, node.getAddress(), message.toString());
+		}
+	 }
 }
